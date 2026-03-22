@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live SOS Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;height:100vh;display:flex;justify-content:center;align-items:center;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);font-family:'Poppins',sans-serif;}
+.container{text-align:center;color:white;}
+h1{font-size:36px;margin-bottom:30px;}
+.sos-btn{width:180px;height:180px;border-radius:50%;border:none;background:#ff2e2e;color:white;font-size:28px;font-weight:600;cursor:pointer;box-shadow:0 10px 40px rgba(255,0,0,0.6);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,0,0,0.7);}70%{box-shadow:0 0 0 25px rgba(255,0,0,0);}100%{box-shadow:0 0 0 0 rgba(255,0,0,0);}}
+.status{margin-top:20px;font-size:16px;}
+a{color:#00ffcc;}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🚨 Live SOS Tracking</h1>
+<button class="sos-btn" onclick="startTracking()">SOS</button>
+<p class="status" id="statusText"></p>
+</div>
+
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script>
+const socket = io("YOUR_RENDER_BACKEND_URL"); // Replace with your Render backend URL
+let watchId = null;
+
+function startTracking(){
+  if(!navigator.geolocation){ alert("Geolocation not supported"); return; }
+
+  // Immediately send current location
+  navigator.geolocation.getCurrentPosition(position=>{
+    sendLocation(position, true); // first time
+  });
+
+  // Continuous live tracking (Uber-style)
+  watchId = navigator.geolocation.watchPosition(position=>{
+    sendLocation(position, false);
+  }, err=>{
+    console.log("Location access denied or error", err);
+  }, {
+    enableHighAccuracy:true,
+    maximumAge:0
+  });
+}
+
+function sendLocation(position,isFirst){
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
+  const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
+  const data = { time:new Date().toLocaleTimeString(), lat, lon, mapLink, first:isFirst };
+  socket.emit("sos-alert", data);
+
+  // Update UI instantly
+  document.getElementById("statusText").innerHTML = `Live Location Updated (${data.time})<br><a href="${mapLink}" target="_blank">Open Map</a>`;
+}
+
+// Optional: receive live updates from other clients
+socket.on("receive-sos",(data)=>{ console.log("Live update:", data.mapLink); });
+</script>
+</body>
+</html>
