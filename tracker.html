@@ -1,42 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Live Tracker Map</title>
+<title>Live Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
 <style>
-body{margin:0;font-family:Arial,sans-serif;}
-#map{height:100vh;width:100%;}
+body{margin:0;}
+#map{height:100vh;}
 </style>
 </head>
+
 <body>
+
 <div id="map"></div>
 
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-const socket = io("YOUR_RENDER_BACKEND_URL"); // Replace with your Render backend URL
 
-// Default location: India
+<script>
+
+const socket = io("YOUR_BACKEND_URL"); // replace
+
 const map = L.map('map').setView([20.5937,78.9629],5);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   attribution:'© OpenStreetMap'
 }).addTo(map);
 
-let marker = null;
+let marker;
 
 socket.on("receive-sos",(data)=>{
-  const lat = data.lat;
-  const lon = data.lon;
+
+  if(!data.lat || !data.lon) return;
 
   if(!marker){
-    marker = L.marker([lat,lon]).addTo(map).bindPopup("🚨 Emergency Location").openPopup();
-    map.setView([lat,lon],15);
-  } else{
-    marker.setLatLng([lat,lon]);
-    map.panTo([lat,lon]);
+    marker = L.marker([data.lat,data.lon])
+      .addTo(map)
+      .bindPopup("🚨 Emergency Location")
+      .openPopup();
+
+    map.setView([data.lat,data.lon],15);
+  }else{
+    marker.setLatLng([data.lat,data.lon]);
+    map.panTo([data.lat,data.lon]);
   }
+
 });
+
 </script>
+
 </body>
 </html>
