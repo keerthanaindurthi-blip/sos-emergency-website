@@ -1,114 +1,72 @@
 require('dotenv').config();
 
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-const twilio = require("twilio");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+const io = new Server(server);
 
-const io = socketIo(server, {
-  cors: { origin: "*" } // restrict in production
+// Middleware
+app.use(express.json());
+
+// Basic route
+app.get('/', (req, res) => {
+  res.send("🚀 Server + Socket.IO running!");
 });
 
-// 🔹 ENV VARIABLES
-const accountSid = process.env.TWILIO_SID;
-const authToken = process.env.TWILIO_TOKEN;
-const twilioNumber = process.env.TWILIO_NUM;
-const myPhone = process.env.MY_PHONE;
+// Socket.IO connection
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
 
-// 🔹 Check ENV properly
-const isTwilioConfigured =
-  accountSid && authToken && twilioNumber && myPhone;
+  socket.on('message', (data) => {
+    console.log('Message received:', data);
 
-if (!isTwilioConfigured) {
-  console.log("⚠️ Twilio not configured. Running in demo mode.");
+    // Broadcast to all users
+    io.emit('message', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+// OPTIONAL: Twilio setup (only if you use it)
+let client;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  const twilio = require('twilio');
+  client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
 }
 
-// 🔹 Create client ONLY if valid
-const client = isTwilioConfigured
-  ? twilio(accountSid, authToken)
-  : null;
-
-// 🔹 SETTINGS
-const DEMO_MODE = !isTwilioConfigured; // auto switch
-let lastSentTime = 0;
-const COOLDOWN = 60000;
-
-// Serve frontend
-app.use(express.static(__dirname));
-
-io.on("connection", (socket) => {
-  console.log("✅ User connected");
-
-  socket.on("sos-alert", async (data) => {
-    // 🔹 Validate data
-    if (!data || !data.lat || !data.lon || !data.mapLink) {
-      socket.emit("sos-status", {
-        success: false,
-        message: "❌ Invalid data received"
-      });
-      return;
+// Example API to send SMS
+app.post('/send-sms', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(500).json({ error: "Twilio not configured" });
     }
 
-    const now = Date.now();
-    const time = new Date().toLocaleString();
+    const { to, message } = req.body;
 
-    // 🔹 Cooldown protection
-    if (now - lastSentTime < COOLDOWN) {
-      socket.emit("sos-status", {
-        success: false,
-        message: "⏳ Please wait before sending another SOS"
-      });
-      return;
-    }
+    const response = await client.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: to
+    });
 
-    lastSentTime = now;
-
-    try {
-      // 🔹 Send SMS if configured
-      if (!DEMO_MODE && client) {
-        await client.messages.create({
-          body: `🚨 EMERGENCY SOS!\nTime: ${time}\nLocation: ${data.mapLink}`,
-          from: twilioNumber,
-          to: myPhone
-        });
-
-        console.log("📩 SMS sent successfully");
-      } else {
-        console.log("🧪 Demo mode: SMS not sent");
-      }
-
-      // 🔹 Notify sender
-      socket.emit("sos-status", {
-        success: true,
-        message: "✅ SOS sent successfully!"
-      });
-
-      // 🔹 Broadcast live location
-      io.emit("receive-sos", {
-        lat: data.lat,
-        lon: data.lon,
-        time
-      });
-
-    } catch (err) {
-      console.error("❌ Error sending SMS:", err.message);
-
-      socket.emit("sos-status", {
-        success: false,
-        message: "❌ Failed to send SOS"
-      });
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("❌ User disconnected");
-  });
+    res.json({ success: true, sid: response.sid });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "SMS failed" });
+  }
 });
 
+// PORT (Render requirement)
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
