@@ -15,7 +15,9 @@ console.log("FROM:", process.env.TWILIO_NUM);
 console.log("TO:", process.env.MY_PHONE);
 
 app.use(express.static("public"));
-
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
 let lastLocation = null;
 
 // create Twilio client ONCE
