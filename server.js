@@ -1,72 +1,72 @@
-require('dotenv').config();
-
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
+const path = require("path");
+require("dotenv").config({ path: "./.env" });
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+const twilio = require("twilio");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server);
+console.log("SID:", process.env.TWILIO_SID);
+console.log("TOKEN:", process.env.TWILIO_TOKEN ? "loaded" : "missing");
+console.log("FROM:", process.env.TWILIO_NUM);
+console.log("TO:", process.env.MY_PHONE);
 
-// Middleware
-app.use(express.json());
+app.use(express.static("public"));
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send("🚀 Server + Socket.IO running!");
-});
+let lastLocation = null;
 
-// Socket.IO connection
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+// create Twilio client ONCE
+const smsClient =
+  process.env.TWILIO_SID && process.env.TWILIO_TOKEN
+    ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
+    : null;
 
-  socket.on('message', (data) => {
-    console.log('Message received:', data);
+io.on("connection", (socket) => {
+  console.log("user connected");
 
-    // Broadcast to all users
-    io.emit('message', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
-
-// OPTIONAL: Twilio setup (only if you use it)
-let client;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-  const twilio = require('twilio');
-  client = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-  );
-}
-
-// Example API to send SMS
-app.post('/send-sms', async (req, res) => {
-  try {
-    if (!client) {
-      return res.status(500).json({ error: "Twilio not configured" });
-    }
-
-    const { to, message } = req.body;
-
-    const response = await client.messages.create({
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: to
-    });
-
-    res.json({ success: true, sid: response.sid });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "SMS failed" });
+  if (lastLocation) {
+    socket.emit("location", lastLocation);
   }
+
+  // SOS EVENT
+  socket.on("sos", async (data) => {
+    console.log("SOS started:", data);
+
+    lastLocation = data;
+    io.emit("location", data);
+
+    // SMS SEND (ONLY HERE)
+    if (smsClient) {
+      try {
+        await smsClient.messages.create({
+          body: `🚨 SOS ALERT\nName: ${data.name}\nLocation: https://maps.google.com/?q=${data.lat},${data.lon}`,
+          from: process.env.TWILIO_NUM,
+          to: process.env.MY_PHONE,
+        });
+
+        console.log("SMS sent successfully");
+      } catch (err) {
+        console.log("SMS failed:", err.message);
+      }
+    } else {
+      console.log("Twilio not configured (demo mode)");
+    }
+  });
+
+  // live tracking
+  socket.on("location-update", (data) => {
+    lastLocation = data;
+    io.emit("location", data);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("user disconnected");
+  });
 });
 
-// PORT (Render requirement)
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+server.listen(process.env.PORT || 3000, () => {
+  console.log("running on http://localhost:3000");
 });
