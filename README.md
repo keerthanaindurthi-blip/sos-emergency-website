@@ -1,107 +1,76 @@
-# SOS Emergency Tracking System
+SOS Emergency Tracking System
+Overview
 
-A real-time SOS emergency web application that enables users to send alerts with live location tracking. The system uses WebSockets for instant updates and can send SMS notifications via Twilio.
+The SOS Emergency Tracking System is a real-time web application designed to send emergency alerts along with live location tracking. It enables users to broadcast an SOS signal instantly, which is shared in real time with connected clients. The system also supports optional SMS notifications using Twilio for emergency contact alerts.
 
-## Features
+Features
+Real-time location tracking using Socket.IO
+Instant SOS alert broadcasting
+Live GPS location sharing with Google Maps link
+Optional SMS notifications via Twilio
+Lightweight web-based interface
+Simple and fast emergency communication system
+Tech Stack
+Node.js
+Express.js
+Socket.IO
+Twilio API
+HTML, CSS, JavaScript
+dotenv for environment configuration
+Project Structure
+real time/
+│── public/            Frontend files
+│── server.js          Backend server
+│── package.json       Dependencies and scripts
+│── .env               Environment variables (not committed)
+│── .gitignore         Ignored files configuration
+Environment Variables
 
-* One-click SOS activation
-* Real-time location tracking with continuous updates
-* Live tracking dashboard using a map interface
-* WebSocket-based real-time communication
-* SMS alert integration using Twilio
-* Stop SOS functionality
-* Cooldown mechanism to prevent repeated alerts
-## How It Works
+Create a .env file in the root directory and add the following:
 
-1. The user clicks the SOS button.
-2. The browser captures the user’s location using geolocation APIs.
-3. The data is sent to the backend via WebSockets.
-4. The backend:
+TWILIO_SID=your_twilio_sid
+TWILIO_TOKEN=your_twilio_auth_token
+TWILIO_NUM=your_twilio_phone_number
+MY_PHONE=destination_phone_number
+PORT=3000
 
-   * Sends an SMS alert (if Twilio is configured)
-   * Broadcasts the location to all connected clients
-5. The tracker page displays the live location on a map.
+Important: The .env file must never be pushed to GitHub.
 
-## Tech Stack
+Installation
 
-* Frontend: HTML, CSS, JavaScript
-* Backend: Node.js, Express.js
-* Real-time Communication: Socket.IO
-* Mapping: Leaflet.js with OpenStreetMap
-* SMS Service: Twilio API
+Clone the repository and install dependencies:
 
----
-
-## Project Structure
-
-```
-├── server.js
-├── index.html        # SOS interface
-├── tracker.html      # Live tracking dashboard
-├── .env              # Environment variables (excluded from repository)
-└── README.md
-```
-
----
-
-## Setup Instructions
-
-### 1. Clone the repository
-
-```
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
-```
-
-### 2. Install dependencies
-
-```
 npm install
-```
+Running the Application
 
-### 3. Create a `.env` file
+Start the server:
 
-```
-TWILIO_SID=your_sid
-TWILIO_TOKEN=your_token
-TWILIO_NUM=your_twilio_number
-MY_PHONE=your_phone_number
-```
-
-### 4. Run the server
-
-```
 node server.js
-```
 
-### 5. Open in browser
+The application will run at:
 
-* SOS page: http://localhost:3000/index.html
-* Tracker page: http://localhost:3000/tracker.html
-  
-## Environment Variables
+http://localhost:3000
+How It Works
+A user triggers an SOS event from the frontend
+The system captures the user’s current location
+The location is sent to the backend via Socket.IO
+The backend broadcasts the data to all connected clients
+If configured, an SMS alert is sent using Twilio
+Deployment
 
-| Variable     | Description            |
-| ------------ | ---------------------- |
-| TWILIO_SID   | Twilio Account SID     |
-| TWILIO_TOKEN | Twilio Auth Token      |
-| TWILIO_NUM   | Twilio phone number    |
-| MY_PHONE     | Recipient phone number |
+This project can be deployed on platforms such as:
 
+Render
+Railway
+Any Node.js hosting service
 
-## Demo Mode
-If Twilio credentials are not configured, the application runs in demo mode:
-* SMS is not sent
-* Alerts are logged in the console
-## Future Improvements
-* Mobile application integration
-* Integration with official emergency services
-* Camera capture during SOS activation
-* Push notifications
-* User authentication
-## Disclaimer
-This project is a prototype for educational purposes. For real-world deployment, integration with authorized emergency services is required.
+Ensure environment variables are configured in the hosting platform.
 
-## Author
+Security Notes
+Do not commit node_modules
+Do not commit .env files
+Ensure sensitive credentials are kept secure
+Use .gitignore properly
+Purpose
 
-Keerthana
+This project demonstrates real-time communication, emergency alert handling, and backend integration using Node.js and WebSockets.
