@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SOS Emergency Tracking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #7a0014;
+      font-family: Georgia, serif;
+      color: #f5e6d3;
+    }
+
+    .container { text-align: center; }
+    h1 { font-size: 60px; margin-bottom: 30px; }
+
+    input {
+      padding: 10px;
+      width: 250px;
+      border-radius: 5px;
+      border: none;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      display: block;
+      width: 200px;
+      margin: 10px auto;
+      padding: 12px;
+      border-radius: 25px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .start { background: #f5e6d3; color: #7a0014; }
+    .stop {
+      background: transparent;
+      border: 1px solid #f5e6d3;
+      color: #f5e6d3;
+    }
+    .status { margin-top: 15px; font-size: 14px; }
+
+    #popup {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #f5e6d3;
+      color: #7a0014;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SOS</h1>
+    <input id="username" placeholder="Enter your name" autocomplete="name">
+    <button class="btn start" onclick="startSOS()">Start SOS</button>
+    <button class="btn stop" onclick="stopSOS()">Stop SOS</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="popup"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let watchId = null;
+    let active = false;
+
+    function showPopup(name, time, link) {
+      const popup = document.getElementById("popup");
+      popup.replaceChildren();
+
+      const title = document.createElement("b");
+      title.textContent = "SOS Sent";
+      popup.appendChild(title);
+      popup.appendChild(document.createElement("br"));
+      popup.appendChild(document.createTextNode(name));
+      popup.appendChild(document.createElement("br"));
+      popup.appendChild(document.createTextNode(`Time: ${time}`));
+      popup.appendChild(document.createElement("br"));
+
+      const linkElement = document.createElement("a");
+      linkElement.href = link;
+      linkElement.target = "_blank";
+      linkElement.rel = "noopener noreferrer";
+      linkElement.textContent = "View Location";
+      popup.appendChild(linkElement);
+      popup.style.display = "block";
+
+      setTimeout(() => { popup.style.display = "none"; }, 4000);
+    }
+
+    function startSOS() {
+      const name = document.getElementById("username").value.trim();
+      const status = document.getElementById("status");
+
+      if (!name) {
+        status.textContent = "Enter your name";
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        status.textContent = "Geolocation is not supported by this browser";
+        return;
+      }
+
+      if (active) {
+        status.textContent = "SOS is already active";
+        return;
+      }
+
+      if (!socket.connected) socket.connect();
+
+      active = true;
+      status.textContent = "Starting SOS...";
+
+      navigator.geolocation.getCurrentPosition((pos) => {
+        if (!active) return;
+
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        socket.emit("sos", { lat, lon, name });
+
+        const time = new Date().toLocaleTimeString();
+        const link = `https://maps.google.com/?q=${lat},${lon}`;
+        showPopup(name, time, link);
+
+        watchId = navigator.geolocation.watchPosition((p) => {
+          if (!active) return;
+          socket.emit("location-update", {
+            lat: p.coords.latitude,
+            lon: p.coords.longitude,
+            name
+          });
+        }, () => {
+          status.textContent = "SOS ACTIVE - Live location update unavailable";
+        });
+
+        status.textContent = "SOS ACTIVE - Tracking...";
+      }, () => {
+        active = false;
+        status.textContent = "Unable to get your location. Allow location access and try again.";
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    }
+
+    function stopSOS() {
+      const status = document.getElementById("status");
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+
+      active = false;
+      status.textContent = "SOS stopped";
+    }
+  </script>
+</body>
+</html>
