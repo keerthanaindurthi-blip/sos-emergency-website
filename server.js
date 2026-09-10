@@ -1,6 +1,5 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 const path = require("path");
-require("dotenv").config({ path: "./.env" });
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -9,18 +8,18 @@ const twilio = require("twilio");
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-console.log("SID:", process.env.TWILIO_SID);
-console.log("TOKEN:", process.env.TWILIO_TOKEN ? "loaded" : "missing");
-console.log("FROM:", process.env.TWILIO_NUM);
-console.log("TO:", process.env.MY_PHONE);
+const publicDir = path.join(__dirname, "public");
 
-app.use(express.static("public"));
+app.use(express.static(publicDir));
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/public/index.html");
+  res.sendFile(path.join(publicDir, "index.html"));
 });
+app.get("/tracker", (req, res) => {
+  res.sendFile(path.join(publicDir, "tracker.html"));
+});
+
 let lastLocation = null;
 
-// create Twilio client ONCE
 const smsClient =
   process.env.TWILIO_SID && process.env.TWILIO_TOKEN
     ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
@@ -33,22 +32,28 @@ io.on("connection", (socket) => {
     socket.emit("location", lastLocation);
   }
 
-  // SOS EVENT
   socket.on("sos", async (data) => {
-    console.log("SOS started:", data);
+    if (!data || !data.name || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) {
+      return;
+    }
 
-    lastLocation = data;
-    io.emit("location", data);
+    const location = {
+      lat: Number(data.lat),
+      lon: Number(data.lon),
+      name: String(data.name).slice(0, 100),
+    };
 
-    // SMS SEND (ONLY HERE)
+    console.log("SOS started for:", location.name);
+    lastLocation = location;
+    io.emit("location", location);
+
     if (smsClient) {
       try {
         await smsClient.messages.create({
-          body: `🚨 SOS ALERT\nName: ${data.name}\nLocation: https://maps.google.com/?q=${data.lat},${data.lon}`,
+          body: `SOS ALERT\nName: ${location.name}\nLocation: https://maps.google.com/?q=${location.lat},${location.lon}`,
           from: process.env.TWILIO_NUM,
           to: process.env.MY_PHONE,
         });
-
         console.log("SMS sent successfully");
       } catch (err) {
         console.log("SMS failed:", err.message);
@@ -58,10 +63,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  // live tracking
   socket.on("location-update", (data) => {
-    lastLocation = data;
-    io.emit("location", data);
+    if (!data || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) {
+      return;
+    }
+
+    lastLocation = {
+      lat: Number(data.lat),
+      lon: Number(data.lon),
+      name: String(data.name || "SOS user").slice(0, 100),
+    };
+    io.emit("location", lastLocation);
   });
 
   socket.on("disconnect", () => {
@@ -70,5 +82,5 @@ io.on("connection", (socket) => {
 });
 
 server.listen(process.env.PORT || 3000, () => {
-  console.log("running on http://localhost:3000");
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
 });
