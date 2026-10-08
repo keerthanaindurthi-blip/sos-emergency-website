@@ -2,6 +2,10 @@
 
 A real-time emergency alert and location tracking web application that lets a user send an SOS signal, share live GPS coordinates, and optionally send an SMS alert through Twilio.
 
+## Live Demo
+
+**Vercel:** https://sos-emergency-website.vercel.app
+
 ## Features
 
 - Start and stop an SOS session.
@@ -91,7 +95,11 @@ http://localhost:3000/tracker
 
 ## Deployment
 
-The Node.js application can be deployed to a service such as Render or another Node.js hosting platform. Configure the required environment variables in the hosting provider's settings rather than committing a `.env` file.
+The application is deployed on Vercel:
+
+**Live website:** https://sos-emergency-website.vercel.app
+
+Configure required environment variables in the hosting provider's settings rather than committing a `.env` file.
 
 ## Author
 
